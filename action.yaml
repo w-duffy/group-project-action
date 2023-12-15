@@ -1,0 +1,42 @@
+name: 'Flask Migrations and Seeds Workflow'
+description: 'Automatically sets up Python, installs dependencies, and runs Flask migrations and seeds on a PostgreSQL database.'
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+      name: Checkout code
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        pip install --no-cache-dir -r requirements.txt
+        pip install --no-cache-dir psycopg2
+      shell: bash
+
+    - name: Run migrations and seed database
+      env:
+        FLASK_APP: app
+        SCHEMA: mydb
+        FLASK_ENV: production
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/database
+      run: |
+        flask db upgrade
+        flask seed all
+      shell: bash
+
+    - name: Start Postgres service
+      run: docker run -d -e POSTGRES_PASSWORD=password -e POSTGRES_USER=postgres -e POSTGRES_DB=database -p 5432:5432 postgres
+      shell: bash
