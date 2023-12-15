@@ -4,8 +4,8 @@ description: 'Automatically sets up Python, installs dependencies, and runs Flas
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v4
-      name: Checkout code
+    - name: Checkout code
+      uses: actions/checkout@v4
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -26,17 +26,31 @@ runs:
         pip install --no-cache-dir psycopg2
       shell: bash
 
+    - name: Start Postgres service
+      run: |
+        docker run -d \
+          -e POSTGRES_PASSWORD=password \
+          -e POSTGRES_USER=postgres \
+          -e POSTGRES_DB=dbname \
+          -p 5432:5432 \
+          postgres
+      shell: bash
+
+    - name: Wait for PostgreSQL to be ready
+      run: |
+        until pg_isready -h localhost -p 5432; do
+          echo "Waiting for PostgreSQL..."
+          sleep 1
+        done
+      shell: bash
+
     - name: Run migrations and seed database
       env:
         FLASK_APP: app
         SCHEMA: mydb
         FLASK_ENV: production
-        DATABASE_URL: postgresql://postgres:password@localhost:5432/database
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/dbname
       run: |
         flask db upgrade
         flask seed all
-      shell: bash
-
-    - name: Start Postgres service
-      run: docker run -d -e POSTGRES_PASSWORD=password -e POSTGRES_USER=postgres -e POSTGRES_DB=database -p 5432:5432 postgres
       shell: bash
